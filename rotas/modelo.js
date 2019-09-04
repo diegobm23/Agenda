@@ -1,48 +1,55 @@
-var fileSystem = require('fs');
+const fileSystem = require('fs');
+const { promisify } = require('util');
 const caminhoPersistencia = './persistencia/agenda.json';
 
-var modelo = {
-  cadastrarContato: async function(contato) {
-    let agenda;
+const appendFile = promisify(fileSystem.appendFile);
+const writeFile = promisify(fileSystem.writeFile);
+const exists = promisify(fileSystem.exists);
+const readFile = promisify(fileSystem.readFile);
 
-    if (await !fileSystem.existsSync(caminhoPersistencia)) {
-      await modelo.criarArquivo();
-    }
-    
-    agenda = await modelo.carregarArquivo();
-    agenda.push(contato);
-    await modelo.gravarArquivo(agenda);
-    return agenda;
-  },
-  buscarContato: async function(nome) {
-    let agenda;
-
-    if (await !fileSystem.existsSync(caminhoPersistencia)) {
-      await modelo.criarArquivo();
-    }
-    
-    agenda = await modelo.carregarArquivo();
-    return agenda.filter(c => {
-      return (c.nome.indexOf(nome) > -1 || nome === "");
-    });
-  },
-  criarArquivo: async function() {
-    let agenda = JSON.stringify([]);
-    await fileSystem.appendFileSync(caminhoPersistencia, agenda, 'utf8');
-  },
-  carregarArquivo: async function() {
-    let agenda;
-    agenda = await fileSystem.readFileSync(caminhoPersistencia, 'utf8');
-
-    if (agenda === "") {
-        agenda = "[]";
-    }
-
-    return JSON.parse(agenda);
-  },
-  gravarArquivo: async function(agenda) {
-    await fileSystem.writeFileSync(caminhoPersistencia, JSON.stringify(agenda), 'utf8')
-  }
+const criarArquivo = async () => {
+  let agenda = JSON.stringify([]);
+  await appendFile(caminhoPersistencia, agenda, 'utf8');
 };
 
-module.exports = modelo;
+const gravarArquivo = async (agenda) => {
+  await writeFile(caminhoPersistencia, JSON.stringify(agenda), 'utf8');
+};
+
+const carregarArquivo = async () => {
+  let agenda = await readFile(caminhoPersistencia, 'utf8');
+
+  if (agenda === '') {
+    agenda = '[]';
+  }
+
+  return JSON.parse(agenda);
+};
+
+const cadastrar = async (contato) => {
+  if (!(await exists(caminhoPersistencia))) {
+    await criarArquivo();
+  }
+
+  let agenda = await carregarArquivo();
+
+  agenda.push(contato);
+  await gravarArquivo(agenda);
+
+  return agenda;
+};
+
+const buscar = async (nome) => {
+  if (!(await exists(caminhoPersistencia))) {
+    await criarArquivo();
+  }
+
+  let agenda = await carregarArquivo();
+
+  return agenda.filter((registro) => registro.nome.indexOf(nome) > -1 || nome === "");
+}
+
+module.exports = {
+  cadastrar,
+  buscar,
+};
